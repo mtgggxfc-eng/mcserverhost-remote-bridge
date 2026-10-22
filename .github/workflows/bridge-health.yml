@@ -16,11 +16,11 @@ jobs:
           for i in $(seq 1 12); do
             RESPONSE=$(curl -fsS --connect-timeout 8 --max-time 20 'https://mcserverhost-remote-bridge.onrender.com/health') || RESPONSE='{}'
             echo "Probe $i: $RESPONSE"
-            if printf '%s' "$RESPONSE" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get("agent_connected") is True else 1)'; then
-              echo 'MCBRIDGE_AGENT_HEARTBEAT_OK'
+            if printf '%s' "$RESPONSE" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get("agent_connected") is True and d.get("command_probe")=="passed" else 1)'; then
+              echo 'MCBRIDGE_REMOTE_COMMAND_ROUNDTRIP_OK'
               exit 0
             fi
             sleep 10
           done
-          echo 'MCBRIDGE_AGENT_HEARTBEAT_PENDING'
+          echo 'MCBRIDGE_REMOTE_COMMAND_ROUNDTRIP_PENDING'
           exit 1
