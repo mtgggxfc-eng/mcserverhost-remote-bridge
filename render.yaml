@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mcserverhost-remote-bridge
+    runtime: docker
+    autoDeployTrigger: off
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: OPERATOR_TOKEN
+        sync: false
+      - key: AGENT_TOKEN
+        sync: false
