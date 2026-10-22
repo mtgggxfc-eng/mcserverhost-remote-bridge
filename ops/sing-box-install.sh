@@ -4,6 +4,7 @@
 set -eu
 umask 077
 BASE="${SBOX_DIR:-/home/container/lab/sing-box}"
+BIN="$BASE/sing-box"
 HOST="${PUBLIC_HOST:-15.204.97.241}"
 UDP_PORT="${HY2_PORT:-11651}"
 TCP_PORT="${VLESS_PORT:-}"
