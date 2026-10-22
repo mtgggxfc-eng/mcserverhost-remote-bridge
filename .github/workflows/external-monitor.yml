@@ -1,0 +1,27 @@
+name: MCServerHost External Monitor
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/external-monitor.yml'
+      - 'watchdog/monitor.py'
+permissions:
+  contents: read
+concurrency:
+  group: mcserverhost-external-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Observe Render bridge, Minecraft, and SSH
+        env:
+          MC_GAME_HOST: 15.204.97.241
+          MC_GAME_PORT: '11648'
+          MC_SSH_PORT: '11651'
+          BRIDGE_HEALTH_URL: https://mcserverhost-remote-bridge.onrender.com/health
+        run: python3 watchdog/monitor.py
