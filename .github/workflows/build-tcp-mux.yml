@@ -1,0 +1,40 @@
+name: Build TCP Protocol Multiplexer
+on:
+  push:
+    paths:
+      - 'ops/tcp-mux/**'
+      - '.github/workflows/build-tcp-mux.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Test protocol routing
+        run: |
+          cd ops/tcp-mux
+          GO111MODULE=off go test -race -v .
+      - name: Build static linux amd64 multiplexer
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          cd ops/tcp-mux
+          GO111MODULE=off go build -trimpath -ldflags='-s -w' -o ../../tcp-mux main.go
+          file ../../tcp-mux
+      - name: Publish multiplexer binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view tcp-mux-v0.1.0 >/dev/null 2>&1; then
+            gh release upload tcp-mux-v0.1.0 tcp-mux --clobber
+          else
+            gh release create tcp-mux-v0.1.0 tcp-mux --title "TCP Protocol Multiplexer v0.1.0" --notes "Binary supports SSH and TLS routing over one allocated TCP endpoint"
+          fi
