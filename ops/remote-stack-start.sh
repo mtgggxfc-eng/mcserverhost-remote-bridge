@@ -5,9 +5,9 @@ set -eu
 umask 077
 BASE=/home/container/lab/remote-stack
 AGENT_DIR=/home/container/lab/remote-agent
-HY2_DIR=/home/container/lab/hy2
+SBOX_DIR=/home/container/lab/sing-box
 RELAY_URL=https://mcserverhost-remote-bridge.onrender.com
-mkdir -p "$BASE" "$AGENT_DIR" "$HY2_DIR"
+mkdir -p "$BASE" "$AGENT_DIR" "$SBOX_DIR"
 cd "$BASE"
 if [ ! -s "$AGENT_DIR/agent.sh" ]; then
   curl -fsSLo "$AGENT_DIR/agent.sh" \
@@ -32,8 +32,8 @@ if [ -s "$BASE/agent.token" ]; then
 else
   echo AGENT_TOKEN_FILE_MISSING
 fi
-if [ ! -s "$BASE/hy2-install.sh" ]; then
-  curl -fsSLo "$BASE/hy2-install.sh" \
-    https://raw.githubusercontent.com/mtgggxfc-eng/mcserverhost-remote-bridge/main/ops/hy2-install.sh
+if [ ! -s "$BASE/sing-box-install.sh" ]; then
+  curl -fsSLo "$BASE/sing-box-install.sh" \
+    https://raw.githubusercontent.com/mtgggxfc-eng/mcserverhost-remote-bridge/main/ops/sing-box-install.sh
 fi
-sh "$BASE/hy2-install.sh"
+SBOX_DIR="$SBOX_DIR" sh "$BASE/sing-box-install.sh"
