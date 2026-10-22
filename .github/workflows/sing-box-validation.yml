@@ -1,0 +1,37 @@
+name: sing-box Config Validation
+on:
+  push:
+    paths:
+      - 'ops/sing-box-install.sh'
+      - '.github/workflows/sing-box-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: sh -n ops/sing-box-install.sh
+      - name: Check HY2-only config with real sing-box
+        env:
+          SBOX_DIR: ${{ runner.temp }}/singbox-lab
+          SBOX_CHECK_ONLY: '1'
+        run: sh ops/sing-box-install.sh
+      - name: Check combined HY2 and VLESS REALITY config
+        env:
+          SBOX_DIR: ${{ runner.temp }}/singbox-lab
+          SBOX_CHECK_ONLY: '1'
+          VLESS_PORT: '11652'
+        run: sh ops/sing-box-install.sh
+      - name: Verify sharing URI formats without printing credentials
+        shell: bash
+        env:
+          SB_DIR: ${{ runner.temp }}/singbox-lab
+        run: |
+          grep -q '^hysteria2://' "$SB_DIR/private/share-links.txt"
+          grep -q '^vless://' "$SB_DIR/private/share-links.txt"
+          test "$(wc -l < "$SB_DIR/private/share-links.txt")" -eq 2
+          echo SBOX_TWO_LINKS_FORMAT_OK
