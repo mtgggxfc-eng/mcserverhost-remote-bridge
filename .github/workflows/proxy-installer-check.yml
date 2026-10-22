@@ -1,0 +1,21 @@
+name: Proxy Installer Syntax
+on:
+  push:
+    paths:
+      - 'ops/hy2-install.sh'
+      - '.github/workflows/proxy-installer-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check POSIX shell syntax
+        run: sh -n ops/hy2-install.sh
+      - name: Verify no local secrets in source
+        run: |
+          ! grep -q 'BEGIN PRIVATE KEY' ops/hy2-install.sh
+          ! grep -q 'AGENT_TOKEN=' ops/hy2-install.sh
