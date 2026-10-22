@@ -84,7 +84,7 @@ cat >>"$BASE/config.json" <<EOF
     ,{
       "type": "vless",
       "tag": "vless-reality",
-      "listen": "0.0.0.0",
+      "listen": "127.0.0.1",
       "listen_port": $TCP_PORT,
       "users": [{"uuid": "$UUID", "flow": "xtls-rprx-vision"}],
       "tls": {
@@ -111,7 +111,7 @@ chmod 600 "$BASE/config.json"
   printf 'hysteria2://%s@%s:%s?sni=mcbridge-lab&insecure=1#MC-HY2-sing-box\n' "$HY2_PASSWORD" "$HOST" "$UDP_PORT"
   if [ -n "$TCP_PORT" ]; then
     printf 'vless://%s@%s:%s?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=%s&sid=%s&type=tcp#MC-VLESS-REALITY-sing-box\n' \
-      "$UUID" "$HOST" "$TCP_PORT" "$REALITY_PUBLIC" "$SHORTID"
+      "$UUID" "$HOST" "${PUBLIC_VLESS_PORT:-$TCP_PORT}" "$REALITY_PUBLIC" "$SHORTID"
   fi
 } >"$BASE/private/share-links.txt"
 chmod 600 "$BASE/private/share-links.txt"
