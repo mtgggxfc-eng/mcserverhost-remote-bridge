@@ -7,7 +7,7 @@ if min(len(OP),len(AG))<24 or OP==AG: raise SystemExit("Set distinct 24+ charact
 DB=os.getenv("DB_PATH","/tmp/mcbridge.sqlite3")
 db=sqlite3.connect(DB,check_same_thread=False)
 db.execute("CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, command TEXT, status TEXT, created REAL, started REAL, finished REAL, timeout INTEGER, stdout TEXT, stderr TEXT, code INTEGER)")
-db.commit();lock=threading.RLock();last_seen=[None]
+db.commit();lock=threading.RLock();last_seen=[None];probe_id=[None]
 def js(x):return json.dumps(x,ensure_ascii=False,separators=(",",":")).encode()
 def create(command,timeout):
     if not isinstance(command,str) or not command.strip() or len(command)>4000:raise ValueError("Invalid command")
@@ -89,7 +89,10 @@ class H(BaseHTTPRequestHandler):
         return x
     def do_GET(self):
         path=urlsplit(self.path).path
-        if path=="/health":return self.send(200,{"status":"ok","agent_connected":last_seen[0] is not None and time.time()-last_seen[0]<45})
+        if path=="/health":
+            p=get(probe_id[0]) if probe_id[0] else None
+            passed=bool(p and p["status"]=="done" and p["exit_code"]==0 and "/home/container" in p["stdout"] and "MCBRIDGE_REMOTE_EXEC_OK" in p["stdout"])
+            return self.send(200,{"status":"ok","agent_connected":last_seen[0] is not None and time.time()-last_seen[0]<45,"command_probe":"passed" if passed else (p["status"] if p else "not_started")})
         kind="agent" if path=="/v1/agent/next" else "operator"
         if not self.auth(kind):return self.send(401,{"error":"unauthorized"})
         if path=="/v1/agent/next":
@@ -126,4 +129,5 @@ class H(BaseHTTPRequestHandler):
         except (ValueError,TypeError,KeyError) as e:return self.send(400,{"error":str(e)})
         except Exception:return self.send(500,{"error":"internal error"})
 if __name__=="__main__":
+    probe_id[0]=create("pwd; id -u; printf 'MCBRIDGE_REMOTE_EXEC_OK\\n'",20)
     ThreadingHTTPServer(("0.0.0.0",int(os.getenv("PORT","8080"))),H).serve_forever()
