@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'watchdog/udp_quic_probe.py'
+      - 'ops/sing-box-install.sh'
+      - 'ops/reload-sing-box.sh'
       - '.github/workflows/hy2-public-test.yml'
   workflow_dispatch:
 permissions:
