@@ -24,6 +24,65 @@ def probe_tcp(host, port, timeout=5):
     except (OSError, TimeoutError) as exc:
         return {"reachable": False, "error_type": type(exc).__name__}
 
+def varint(value):
+    out = bytearray()
+    while True:
+        part = value & 127
+        value >>= 7
+        out.append(part | (128 if value else 0))
+        if not value:
+            return bytes(out)
+
+def read_varint(conn):
+    result = 0
+    for i in range(5):
+        b = conn.recv(1)
+        if not b:
+            raise ConnectionError("closed")
+        val = b[0]
+        result |= (val & 127) << (7 * i)
+        if not val & 128:
+            return result
+    raise ValueError("Oversized varint")
+
+def read_exact(conn, length):
+    if not 0 <= length <= 65536:
+        raise ValueError("Invalid packet size")
+    data = b""
+    while len(data) < length:
+        packet = conn.recv(length - len(data))
+        if not packet:
+            raise ConnectionError("closed")
+        data += packet
+    return data
+
+def minecraft_status(host, port):
+    """Read vanilla server-list status (separate from TCP accept)."""
+    try:
+        with socket.create_connection((host, port), timeout=4) as conn:
+            conn.settimeout(4)
+            server_host = host.encode()
+            handshake = b"\x00" + varint(0) + varint(len(server_host)) + server_host + port.to_bytes(2, "big") + b"\x01"
+            conn.sendall(varint(len(handshake)) + handshake + b"\x01\x00")
+            length = read_varint(conn)
+            data = read_exact(conn, length)
+            if not data or data[0] != 0:
+                raise ValueError("Unexpected status response")
+            # JSON status string is prefixed by a VarInt.
+            off = 1
+            strlen = 0
+            for shift in range(0, 35, 7):
+                byte = data[off]
+                off += 1
+                strlen |= (byte & 127) << shift
+                if not byte & 128:
+                    break
+            result = json.loads(data[off:off + strlen].decode("utf-8"))
+            return {"responded": True, "players_online": (result.get("players") or {}).get("online"),
+                    "version": (result.get("version") or {}).get("name")}
+    except (OSError, TimeoutError, IndexError, ValueError, UnicodeError) as exc:
+        return {"responded": False, "error_type": type(exc).__name__}
+
 def probe_health(url):
     start = time.monotonic()
     try:
@@ -47,6 +106,7 @@ def main():
         "mode": "monitor_only",
         "bridge": probe_health(BRIDGE),
         "minecraft_tcp": probe_tcp(GAME_HOST, GAME_PORT),
+        "minecraft_status": minecraft_status(GAME_HOST, GAME_PORT),
         "ssh_tcp": probe_tcp(GAME_HOST, SSH_PORT),
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -62,6 +122,7 @@ def main():
             out.write(f"| Bridge HTTPS | {'reachable' if bridge.get('reachable') else 'unreachable'} |\n")
             out.write(f"| Container Agent | {bridge.get('agent_connected', 'unknown')} |\n")
             out.write(f"| Minecraft TCP {GAME_PORT} | {'reachable' if game.get('reachable') else 'unreachable'} |\n")
+            out.write("| Minecraft protocol status | " + ("responded" if report["minecraft_status"].get("responded") else "no response") + " |\\n")
             out.write(f"| FinalShell TCP {SSH_PORT} | {'reachable' if ssh.get('reachable') else 'unreachable'} |\n")
             out.write("\nThis probe observes connectivity only. It does not prevent provider idle sleep.\n")
     # Monitoring failures are observations, not CI failures (prevents repeated notification emails).
