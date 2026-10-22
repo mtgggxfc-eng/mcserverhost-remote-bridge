@@ -89,7 +89,7 @@ class H(BaseHTTPRequestHandler):
         return x
     def do_GET(self):
         path=urlsplit(self.path).path
-        if path=="/health":return self.send(200,{"status":"ok"})
+        if path=="/health":return self.send(200,{"status":"ok","agent_connected":last_seen[0] is not None and time.time()-last_seen[0]<45})
         kind="agent" if path=="/v1/agent/next" else "operator"
         if not self.auth(kind):return self.send(401,{"error":"unauthorized"})
         if path=="/v1/agent/next":
