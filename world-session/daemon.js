@@ -83,6 +83,22 @@ function connect(){
     });
     bot=b;
     starting=false;
+    // Minecraft 26.3 expects client_tick_end after position-bearing packets.
+    // Without it, Paper/Vanilla may reject later movement and kick the client.
+    const originalWrite = b._client.write.bind(b._client);
+    const positionPacketNames = new Set(["position", "position_look", "look", "flying"]);
+    b._client.write = function(name, packet) {
+      const result = originalWrite(name, packet);
+      if (positionPacketNames.has(name)) {
+        try { originalWrite("tick_end", {}); } catch (err) {
+          if (!b._tickEndWarned) {
+            b._tickEndWarned = true;
+            console.error("tick_end unavailable:", err.message);
+          }
+        }
+      }
+      return result;
+    };
     b.once("spawn",()=>{
       if(bot!==b || closing)return;
       authBlocked=false;authIssue=null;
@@ -93,7 +109,7 @@ function connect(){
       timer.unref();
     });
     b.on("kicked",r=>{
-      const reason=String(r).slice(0,240);
+      const reason=(typeof r==="string" ? r : JSON.stringify(r)).slice(0,240);
       if(/unverified_username|invalid_session|not_authenticated|failed_to_verify/i.test(reason)){
         authBlocked=true;
         authIssue=reason;
