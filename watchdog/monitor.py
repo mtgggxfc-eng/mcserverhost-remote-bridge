@@ -6,6 +6,7 @@ import datetime
 import json
 import os
 import socket
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -83,6 +84,19 @@ def minecraft_status(host, port):
     except (OSError, TimeoutError, IndexError, ValueError, UnicodeError) as exc:
         return {"responded": False, "error_type": type(exc).__name__}
 
+def probe_tls_multiplex(host, port):
+    """Check whether the SSH TCP port also accepts a TLS ClientHello."""
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        with socket.create_connection((host, port), timeout=4) as sock:
+            sock.settimeout(5)
+            with ctx.wrap_socket(sock, server_hostname="www.microsoft.com") as tls:
+                return {"tls_handshake": True, "version": tls.version()}
+    except (OSError, TimeoutError, ssl.SSLError) as exc:
+        return {"tls_handshake": False, "error_type": type(exc).__name__}
+
 def probe_health(url):
     start = time.monotonic()
     try:
@@ -125,6 +139,7 @@ def main():
         "minecraft_tcp": probe_tcp(GAME_HOST, GAME_PORT),
         "minecraft_status": minecraft_status(GAME_HOST, GAME_PORT),
         "ssh_tcp": probe_tcp(GAME_HOST, SSH_PORT),
+        "tls_multiplexer": probe_tls_multiplex(GAME_HOST, SSH_PORT),
     }
     report["world_client"] = probe_world_client(os.environ.get("WORLD_CLIENT_HEALTH_URL", "https://mcserverhost-world-session.onrender.com/health"))
     print(json.dumps(report, ensure_ascii=False, indent=2))
