@@ -1,0 +1,34 @@
+name: Build World Service Bootstrap
+on:
+  push:
+    paths:
+      - 'ops/bootstrap/**'
+      - '.github/workflows/build-world-service.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Java 17-compatible plugin
+        run: |
+          mkdir -p build/classes
+          javac --release 17 -d build/classes ops/bootstrap/JavaPlugin.java ops/bootstrap/WorldServiceBootstrap.java
+          cd build/classes
+          jar cf ../../WorldServiceBootstrap.jar org/mcbridge/startup/WorldServiceBootstrap.class
+          cd ../..
+          jar uf WorldServiceBootstrap.jar -C ops/bootstrap plugin.yml
+          jar tf WorldServiceBootstrap.jar
+          ! jar tf WorldServiceBootstrap.jar | grep -q '^org/bukkit/'
+      - name: Publish standalone JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view world-bootstrap-v0.2.0 >/dev/null 2>&1; then
+            gh release upload world-bootstrap-v0.2.0 WorldServiceBootstrap.jar --clobber
+          else
+            gh release create world-bootstrap-v0.2.0 WorldServiceBootstrap.jar --title "World Service Bootstrap v0.2.0" --notes "Owner-controlled Minecraft container startup helper; no credentials embedded"
+          fi
