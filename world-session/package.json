@@ -1,0 +1,17 @@
+{
+  "name": "mcserverhost-world-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Managed Minecraft Java client session for a private world",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --check index.js && node test-config.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@wp2508/mineflayer": "4.42.2"
+  }
+}
