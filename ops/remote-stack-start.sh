@@ -56,7 +56,7 @@ else
   echo TCP_MUX_BINARY_MISSING
 fi
 if [ "${MCBRIDGE_WATCHDOG_CHILD:-0}" != 1 ]; then
-  if [ ! -s "$BASE/watchdog.pid" ] || ! kill -0 "$(cat "$BASE/watchdog.pid")" 2>/dev/null;then
+  if [ ! -s "$BASE/watchdog.pid" ] || ! kill -0 "$(cat "$BASE/watchdog.pid")" 2>/dev/null || ! ps -p "$(cat "$BASE/watchdog.pid")" -o args= | grep -F "$BASE/watchdog.sh" >/dev/null 2>&1;then
     if [ ! -s "$BASE/watchdog.sh" ];then
       curl -fsSLo "$BASE/watchdog.sh" https://raw.githubusercontent.com/mtgggxfc-eng/mcserverhost-remote-bridge/main/ops/watchdog.sh
     fi
