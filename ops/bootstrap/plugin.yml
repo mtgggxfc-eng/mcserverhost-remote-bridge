@@ -1,0 +1,4 @@
+name: WorldServiceBootstrap
+version: 0.2.0
+main: org.mcbridge.startup.WorldServiceBootstrap
+load: STARTUP
