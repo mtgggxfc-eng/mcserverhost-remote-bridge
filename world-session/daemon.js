@@ -79,7 +79,24 @@ function connect(){
       host:opts.host,port:opts.port,version:opts.version,
       auth:opts.auth,username:opts.username,
       profilesFolder:path.join(opts.dataDir,"profiles"),
-      checkTimeoutInterval:90000
+      checkTimeoutInterval:90000,
+      // Minecraft 26.3 advancement display/slot NBT can exceed the fork's
+      // current parser schema. The bot is a world-presence client and never
+      // consumes advancements. Preserve the full framed packet and discard
+      // only its payload, without disabling other packet decoding.
+      customPackets: {
+        "26.3": {
+          play: {
+            toClient: {
+              types: {
+                packet_advancements: ["container", [
+                  {name:"ignoredPayload",type:"restBuffer"}
+                ]]
+              }
+            }
+          }
+        }
+      }
     });
     bot=b;
     starting=false;
