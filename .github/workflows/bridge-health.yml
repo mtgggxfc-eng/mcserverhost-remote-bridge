@@ -1,0 +1,26 @@
+name: Remote Bridge Health
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bridge-health.yml"
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe public relay and agent heartbeat
+        shell: bash
+        run: |
+          for i in $(seq 1 12); do
+            RESPONSE=$(curl -fsS --connect-timeout 8 --max-time 20 'https://mcserverhost-remote-bridge.onrender.com/health') || RESPONSE='{}'
+            echo "Probe $i: $RESPONSE"
+            if printf '%s' "$RESPONSE" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get("agent_connected") is True else 1)'; then
+              echo 'MCBRIDGE_AGENT_HEARTBEAT_OK'
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'MCBRIDGE_AGENT_HEARTBEAT_PENDING'
+          exit 1
