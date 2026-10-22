@@ -1,0 +1,8 @@
+FROM node:22-alpine
+WORKDIR /app
+COPY world-session/package.json ./package.json
+RUN npm install --omit=dev --no-audit --no-fund
+COPY world-session/daemon.js ./daemon.js
+ENV NODE_ENV=production PORT=10000 GAME_VERSION=26.3
+EXPOSE 10000
+CMD ["node", "daemon.js"]
