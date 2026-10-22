@@ -123,8 +123,14 @@ fi
 if [ -s "$BASE/sing-box.pid" ]; then
   p=$(cat "$BASE/sing-box.pid")
   if kill -0 "$p" 2>/dev/null && ps -p "$p" -o args= | grep -F "$BIN run" >/dev/null 2>&1; then
-    echo SBOX_ALREADY_RUNNING
-    exit 0
+    if [ -n "$TCP_PORT" ] && ! ss -ltn | grep -q ":$TCP_PORT "; then
+      echo SBOX_RESTART_FOR_NEW_VLESS_LISTENER
+      kill "$p"
+      sleep 2
+    else
+      echo SBOX_ALREADY_RUNNING
+      exit 0
+    fi
   fi
 fi
 nohup "$BASE/sing-box" run -c "$BASE/config.json" >"$BASE/server.log" 2>&1 </dev/null &
