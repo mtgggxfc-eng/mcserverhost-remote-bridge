@@ -100,6 +100,23 @@ def probe_health(url):
     except (OSError, TimeoutError, ValueError, urllib.error.URLError) as exc:
         return {"reachable": False, "error_type": type(exc).__name__}
 
+def probe_world_client(url):
+    start = time.monotonic()
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "MCBridge-Watch/1.1"})
+        with urllib.request.urlopen(req, timeout=25) as res:
+            data = json.load(res)
+        return {
+            "reachable": True,
+            "connected": bool(data.get("connected")),
+            "loginSucceeded": bool(data.get("loginSucceeded")),
+            "status": str(data.get("status") or "unknown")[:50],
+            "uptimeSeconds": data.get("uptimeSeconds"),
+            "latency_ms": round((time.monotonic() - start) * 1000),
+        }
+    except (OSError, TimeoutError, ValueError, urllib.error.URLError) as exc:
+        return {"reachable": False, "error_type": type(exc).__name__}
+
 def main():
     report = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -109,11 +126,13 @@ def main():
         "minecraft_status": minecraft_status(GAME_HOST, GAME_PORT),
         "ssh_tcp": probe_tcp(GAME_HOST, SSH_PORT),
     }
+    report["world_client"] = probe_world_client(os.environ.get("WORLD_CLIENT_HEALTH_URL", "https://mcserverhost-world-session.onrender.com/health"))
     print(json.dumps(report, ensure_ascii=False, indent=2))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         bridge = report["bridge"]
         game = report["minecraft_tcp"]
+        session = report["world_client"]
         ssh = report["ssh_tcp"]
         with open(summary, "a", encoding="utf-8") as out:
             out.write("## MCServerHost external monitoring\n\n")
@@ -121,6 +140,7 @@ def main():
             out.write("| Item | Observation |\n|---|---|\n")
             out.write(f"| Bridge HTTPS | {'reachable' if bridge.get('reachable') else 'unreachable'} |\n")
             out.write(f"| Container Agent | {bridge.get('agent_connected', 'unknown')} |\n")
+            out.write("| External game client | " + ("online" if session.get("connected") else session.get("status", "offline")) + " |\\n")
             out.write(f"| Minecraft TCP {GAME_PORT} | {'reachable' if game.get('reachable') else 'unreachable'} |\n")
             out.write("| Minecraft protocol status | " + ("responded" if report["minecraft_status"].get("responded") else "no response") + " |\\n")
             out.write(f"| FinalShell TCP {SSH_PORT} | {'reachable' if ssh.get('reachable') else 'unreachable'} |\n")
