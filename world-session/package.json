@@ -12,6 +12,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@wp2508/mineflayer": "4.42.2"
+    "@wp2508/mineflayer": "4.42.5"
   }
 }
