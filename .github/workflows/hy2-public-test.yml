@@ -1,0 +1,21 @@
+name: HY2 Public UDP QUIC Test
+on:
+  push:
+    paths:
+      - 'watchdog/udp_quic_probe.py'
+      - '.github/workflows/hy2-public-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated QUIC probe dependency
+        run: python3 -m pip install --user 'aioquic>=1.2.0,<2'
+      - name: Test external UDP QUIC handshake
+        shell: bash
+        run: |
+          python3 watchdog/udp_quic_probe.py
