@@ -1,5 +1,6 @@
 "use strict";
 const http = require("node:http");
+const https = require("node:https");
 const fs = require("node:fs");
 const path = require("node:path");
 const mineflayer = require("@wp2508/mineflayer");
@@ -18,6 +19,26 @@ fs.mkdirSync(opts.dataDir, {recursive:true});
 let state = {status:"starting",lastChange:new Date().toISOString(),connected:false,attempt:0};
 let bot=null, timer=null, reconnect=null, closing=false, starting=false, origin=null, reachedSpawn=false, uptimeAt=0;
 let counter=0, consecutiveFailures=0, authBlocked=false, authIssue=null;
+// Self-heartbeat reaches Render through its public HTTPS ingress.
+// This is preventive activity, not bot reconnect logic.
+const keepAlive = {requests:0,successes:0,lastAt:null,lastStatus:null,lastError:null};
+function pingPublicHealth() {
+  const url = process.env.PUBLIC_HEALTH_URL || "https://mcserverhost-world-session.onrender.com/health";
+  keepAlive.requests++;
+  const req=https.get(url,{timeout:10000,headers:{"User-Agent":"GardenKeeper-keepalive/1"}},res=>{
+    keepAlive.lastStatus=res.statusCode;
+    keepAlive.lastAt=new Date().toISOString();
+    if(res.statusCode===200){keepAlive.successes++;keepAlive.lastError=null;}
+    else keepAlive.lastError="HTTP "+res.statusCode;
+    res.resume();
+  });
+  req.on("timeout",()=>req.destroy(new Error("health timeout")));
+  req.on("error",err=>{
+    keepAlive.lastAt=new Date().toISOString();
+    keepAlive.lastError=String(err.message).slice(0,160);
+    console.warn("public_health_ping_failed:",keepAlive.lastError);
+  });
+}
 function report(status, extra={}){
   state={...state,status,lastChange:new Date().toISOString(),...extra};
   // No credentials or private tokens are logged.
@@ -143,13 +164,19 @@ const server=http.createServer((req,res)=>{
   const st={status:state.status,connected:state.connected,loginSucceeded:reachedSpawn,
     version:opts.version,attempt:state.attempt,reason:state.reason||null,
     uptimeSeconds:state.connected?Math.round((Date.now()-uptimeAt)/1000):null,
-    lastChange:state.lastChange};
+    lastChange:state.lastChange,keepAlive};
   if(req.url==="/health"||req.url==="/"){
     res.statusCode=200;res.end(JSON.stringify(st));return;
   }
   res.statusCode=404;res.end('{"error":"not found"}');
 });
-server.listen(opts.httpPort,"0.0.0.0",()=>{report("ready");connect();});
+server.listen(opts.httpPort,"0.0.0.0",()=>{
+  report("ready");
+  connect();
+  // Prevent Render Free's 15-minute inbound-idle sleep while this process is running.
+  const heartbeat=setInterval(pingPublicHealth,4*60*1000);
+  heartbeat.unref();
+});
 for(const signal of ["SIGINT","SIGTERM"]) process.on(signal,()=>{
   closing=true;clearSession();if(reconnect)clearTimeout(reconnect);
   try{bot?.quit("Client stopping");}catch{}
