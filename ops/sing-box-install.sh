@@ -121,7 +121,7 @@ if [ "${SBOX_CHECK_ONLY:-0}" = 1 ]; then
 fi
 if [ -s "$BASE/sing-box.pid" ]; then
   p=$(cat "$BASE/sing-box.pid")
-  if kill -0 "$p" 2>/dev/null; then
+  if kill -0 "$p" 2>/dev/null && ps -p "$p" -o args= | grep -F "$BIN run" >/dev/null 2>&1; then
     echo SBOX_ALREADY_RUNNING
     exit 0
   fi
