@@ -17,7 +17,7 @@ const opts = {
 fs.mkdirSync(opts.dataDir, {recursive:true});
 let state = {status:"starting",lastChange:new Date().toISOString(),connected:false,attempt:0};
 let bot=null, timer=null, reconnect=null, closing=false, starting=false, origin=null, reachedSpawn=false, uptimeAt=0;
-let counter=0, consecutiveFailures=0;
+let counter=0, consecutiveFailures=0, authBlocked=false, authIssue=null;
 function report(status, extra={}){
   state={...state,status,lastChange:new Date().toISOString(),...extra};
   // No credentials or private tokens are logged.
@@ -56,6 +56,12 @@ async function patrol() {
 }
 function retry(reason){
   if(closing||reconnect)return;
+  if(authBlocked){
+    clearSession();
+    state.connected=false;
+    report("auth_required",{reason:authIssue||"Microsoft account login required",retryAfterSeconds:null});
+    return;
+  }
   clearSession();
   state.connected=false;
   reachedSpawn=false;
@@ -79,13 +85,21 @@ function connect(){
     starting=false;
     b.once("spawn",()=>{
       if(bot!==b || closing)return;
+      authBlocked=false;authIssue=null;
       reachedSpawn=true;state.connected=true;uptimeAt=Date.now();origin=b.entity?.position.clone()||null;
       consecutiveFailures=0;
       report("active",{connected:true,reason:null,attempt:state.attempt});
       timer=setInterval(patrol,opts.interval);
       timer.unref();
     });
-    b.on("kicked",r=>{report("kicked",{connected:false,reason:String(r).slice(0,240)});});
+    b.on("kicked",r=>{
+      const reason=String(r).slice(0,240);
+      if(/unverified_username|invalid_session|not_authenticated|failed_to_verify/i.test(reason)){
+        authBlocked=true;
+        authIssue=reason;
+        report("auth_required",{connected:false,reason});
+      }else report("kicked",{connected:false,reason});
+    });
     b.on("error",e=>{report("connection_error",{connected:false,reason:String(e.message).slice(0,240)});});
     b.on("end",r=>{if(bot===b)retry(r);});
   }catch(e){starting=false;retry(e.message);}
